@@ -43,6 +43,75 @@ public class StepCAClient
     }
 
     /// <summary>
+    /// Revokes a certificate in Step-CA
+    /// </summary>
+    /// <param name="serialNumber">Serial number of the certificate to revoke</param>
+    /// <param name="reason">Revocation reason (optional)</param>
+    /// <returns>True if revocation was successful</returns>
+    public async Task<bool> RevokeCertificateAsync(string serialNumber, string reason = "unspecified")
+    {
+        if (string.IsNullOrWhiteSpace(serialNumber))
+            throw new ArgumentNullException(nameof(serialNumber));
+
+        _logger.LogInformation("Revoking certificate from Step-CA. Serial: {SerialNumber}", serialNumber);
+
+        try
+        {
+            // Prepare the revoke request
+            var revokeRequest = new JObject
+            {
+                ["serial"] = serialNumber,
+                ["reason"] = reason,
+                ["reasonCode"] = 0, // 0 = unspecified
+                ["provisioner"] = new JObject
+                {
+                    ["name"] = _options.ProvisionerName,
+                    ["password"] = _options.ProvisionerPassword
+                }
+            };
+
+            var url = $"{_options.ServerUrl}/revoke";
+            var request = new HttpRequestMessage(HttpMethod.Post, url);
+            request.Content = new StringContent(revokeRequest.ToString(), Encoding.UTF8, "application/json");
+
+            _logger.LogDebug("Posting revocation request to Step-CA: {Url}", url);
+
+            var response = await _httpClient.SendAsync(request);
+            var responseContent = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogError("Step-CA certificate revocation failed: Status={StatusCode}, Content={Content}",
+                    response.StatusCode, responseContent);
+                
+                // Check if certificate is already revoked
+                if (response.StatusCode == System.Net.HttpStatusCode.BadRequest && 
+                    responseContent.Contains("certificate is already revoked"))
+                {
+                    _logger.LogWarning("Certificate {SerialNumber} is already revoked", serialNumber);
+                    return true; // Consider already revoked as success
+                }
+
+                throw new StepCAException(
+                    $"Step-CA revocation failed: {response.StatusCode} - {responseContent}",
+                    (int)response.StatusCode);
+            }
+
+            _logger.LogInformation("Certificate revoked successfully. Serial: {SerialNumber}", serialNumber);
+            return true;
+        }
+        catch (StepCAException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to revoke certificate from Step-CA. Serial: {SerialNumber}", serialNumber);
+            throw new StepCAException($"Failed to revoke certificate: {ex.Message}", ex);
+        }
+    }
+
+    /// <summary>
     /// Issues a certificate from Step-CA based on the provided CSR
     /// </summary>
     /// <param name="csrBase64">Base64-encoded PKCS#10 certificate signing request</param>

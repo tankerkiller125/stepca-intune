@@ -13,13 +13,15 @@ The solution consists of two main components:
 
 1. **StepCA.Intune.ScepValidation** - Core library containing:
    - Intune SCEP request validation
-   - Step-CA certificate issuance
+   - Step-CA certificate issuance and revocation
    - Certificate lifecycle management
+   - Certificate revocation processing
 
 2. **StepCA.Intune.Functions** - Azure Functions providing:
-   - HTTP endpoints for SCEP requests
+   - HTTP endpoints for SCEP certificate requests
    - Health check endpoints
    - Certificate request processing
+   - **Automated certificate revocation** (runs every 24 hours)
 
 ## Prerequisites
 
@@ -78,6 +80,23 @@ dotnet test
 
 ## Running Locally
 
+### Using Docker (Recommended)
+
+```bash
+# Copy the example environment file
+cp .env.example .env
+
+# Edit .env with your configuration
+nano .env
+
+# Build and start the containers
+docker-compose up --build
+
+# The service will be available at http://localhost:7071
+```
+
+### Using Azure Functions Core Tools
+
 ```bash
 # Navigate to the Functions project
 cd src/StepCA.Intune.Functions
@@ -92,6 +111,7 @@ The Functions will be available at:
 - Health check: `http://localhost:7071/api/health`
 - SCEP request: `http://localhost:7071/api/scep/pkiclient.exe`
 - Validation only: `http://localhost:7071/api/scep/validate`
+- **Revocation processing**: Runs automatically every 24 hours (timer trigger)
 
 ## Deployment
 
@@ -103,6 +123,35 @@ The Functions will be available at:
 
 ```bash
 func azure functionapp publish <your-function-app-name>
+```
+
+### Deploy with Docker
+
+Build and push the Docker image:
+
+```bash
+# Build the image
+docker build -t stepca-intune-connector:latest -f src/StepCA.Intune.Functions/Dockerfile .
+
+# Tag for your registry
+docker tag stepca-intune-connector:latest <your-registry>/stepca-intune-connector:latest
+
+# Push to registry
+docker push <your-registry>/stepca-intune-connector:latest
+```
+
+Run the container:
+
+```bash
+docker run -d \
+  -p 7071:80 \
+  -e Intune__AzureAppId=<app-id> \
+  -e Intune__AzureAppSecret=<app-secret> \
+  -e Intune__TenantId=<tenant-id> \
+  -e StepCA__ServerUrl=<stepca-url> \
+  -e StepCA__ProvisionerName=<provisioner> \
+  -e StepCA__ProvisionerPassword=<password> \
+  <your-registry>/stepca-intune-connector:latest
 ```
 
 ### Configure Intune
@@ -148,6 +197,16 @@ Validate a SCEP request without issuing a certificate.
 ### GET /api/health
 
 Health check endpoint.
+
+### Timer: ProcessRevocations
+
+**Automated certificate revocation processing** (runs every 24 hours):
+- Downloads revocation requests from Intune
+- Revokes certificates in Step-CA
+- Reports results back to Intune
+- Processes up to 500 revocations per run
+
+**Note**: The revocation timer runs automatically in the background. No manual intervention is required.
 
 ## Security Considerations
 

@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  stepca-intune-functions:
+    build:
+      context: .
+      dockerfile: src/StepCA.Intune.Functions/Dockerfile
+    ports:
+      - "7071:80"
+    environment:
+      - AzureWebJobsStorage=UseDevelopmentStorage=true
+      - FUNCTIONS_WORKER_RUNTIME=dotnet-isolated
+      # Intune Configuration
+      - KeyVault__VaultUrl=${KEYVAULT_VAULT_URL:-}
+      - Intune__AzureAppId=${INTUNE_AZURE_APP_ID}
+      - Intune__AzureAppSecret=${INTUNE_AZURE_APP_SECRET}
+      - Intune__TenantId=${INTUNE_TENANT_ID}
+      - Intune__ProviderNameAndVersion=StepCA-Intune-Connector/1.0
+      - Intune__IntuneResourceUrl=https://graph.microsoft.com/.default
+      - Intune__GraphApiEndpoint=https://graph.microsoft.com
+      - Intune__ServiceVersion=2018-02-20
+      # Step-CA Configuration
+      - StepCA__ServerUrl=${STEPCA_SERVER_URL}
+      - StepCA__ProvisionerName=${STEPCA_PROVISIONER_NAME}
+      - StepCA__ProvisionerPassword=${STEPCA_PROVISIONER_PASSWORD}
+      - StepCA__ValidityHours=${STEPCA_VALIDITY_HOURS:-8760}
+    volumes:
+      - ./data:/data
+    restart: unless-stopped
+    networks:
+      - stepca-network
+
+networks:
+  stepca-network:
+    driver: bridge

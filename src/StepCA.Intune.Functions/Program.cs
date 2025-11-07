@@ -87,6 +87,15 @@ builder.Services.AddSingleton<StepCAClient>(sp =>
     return new StepCAClient(options, logger, httpClientFactory.CreateClient());
 });
 
+builder.Services.AddSingleton<IntuneRevocationClient>(sp =>
+{
+    var options = sp.GetRequiredService<IntuneScepValidationOptions>();
+    var logger = sp.GetRequiredService<ILogger<IntuneRevocationClient>>();
+    var httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
+    return new IntuneRevocationClient(options, logger, httpClientFactory.CreateClient());
+});
+
 builder.Services.AddSingleton<ScepCertificateService>();
+builder.Services.AddSingleton<CertificateRevocationService>();
 
 builder.Build().Run();
