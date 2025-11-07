@@ -14,14 +14,29 @@ builder.Services
     .AddApplicationInsightsTelemetryWorkerService()
     .ConfigureFunctionsApplicationInsights();
 
+// Configure Key Vault Secret Provider (optional)
+builder.Services.AddSingleton(sp =>
+{
+    var config = sp.GetRequiredService<IConfiguration>();
+    var logger = sp.GetRequiredService<ILogger<KeyVaultSecretProvider>>();
+    var keyVaultUrl = config["KeyVault:VaultUrl"];
+    return new KeyVaultSecretProvider(keyVaultUrl, logger);
+});
+
 // Configure Intune SCEP validation
 builder.Services.AddSingleton(sp =>
 {
     var config = sp.GetRequiredService<IConfiguration>();
+    var keyVaultProvider = sp.GetRequiredService<KeyVaultSecretProvider>();
+
+    // Resolve secrets from Key Vault if configured
+    var azureAppSecret = keyVaultProvider.GetSecretAsync(
+        config["Intune:AzureAppSecret"] ?? string.Empty).Result;
+
     return new IntuneScepValidationOptions
     {
         AzureAppId = config["Intune:AzureAppId"] ?? string.Empty,
-        AzureAppSecret = config["Intune:AzureAppSecret"] ?? string.Empty,
+        AzureAppSecret = azureAppSecret,
         TenantId = config["Intune:TenantId"] ?? string.Empty,
         ProviderNameAndVersion = config["Intune:ProviderNameAndVersion"] ?? "StepCA-Intune-Connector/1.0",
         IntuneResourceUrl = config["Intune:IntuneResourceUrl"] ?? "https://graph.microsoft.com/.default",
@@ -34,11 +49,17 @@ builder.Services.AddSingleton(sp =>
 builder.Services.AddSingleton(sp =>
 {
     var config = sp.GetRequiredService<IConfiguration>();
+    var keyVaultProvider = sp.GetRequiredService<KeyVaultSecretProvider>();
+
+    // Resolve secrets from Key Vault if configured
+    var provisionerPassword = keyVaultProvider.GetSecretAsync(
+        config["StepCA:ProvisionerPassword"] ?? string.Empty).Result;
+
     return new StepCAOptions
     {
         ServerUrl = config["StepCA:ServerUrl"] ?? string.Empty,
         ProvisionerName = config["StepCA:ProvisionerName"] ?? string.Empty,
-        ProvisionerPassword = config["StepCA:ProvisionerPassword"] ?? string.Empty,
+        ProvisionerPassword = provisionerPassword,
         ValidityHours = int.TryParse(config["StepCA:ValidityHours"], out var hours) ? hours : 8760,
         RootCertificatePath = config["StepCA:RootCertificatePath"]
     };

@@ -52,16 +52,19 @@ Configure the following settings in `local.settings.json` (for local development
 
 ```json
 {
+  "KeyVault:VaultUrl": "https://your-vault.vault.azure.net/",
   "Intune:AzureAppId": "your-azure-app-id",
-  "Intune:AzureAppSecret": "your-azure-app-secret",
+  "Intune:AzureAppSecret": "keyvault:IntuneAzureAppSecret",
   "Intune:TenantId": "your-tenant-id",
   "Intune:ProviderNameAndVersion": "StepCA-Intune-Connector/1.0",
   "StepCA:ServerUrl": "https://ca.example.com:9000",
   "StepCA:ProvisionerName": "your-provisioner-name",
-  "StepCA:ProvisionerPassword": "your-provisioner-password",
+  "StepCA:ProvisionerPassword": "kv:StepCAProvisionerPassword",
   "StepCA:ValidityHours": "8760"
 }
 ```
+
+**Note**: The connector supports optional Azure Key Vault integration for secure secret storage. Use `keyvault:SecretName` or `kv:SecretName` to reference Key Vault secrets. See [KEYVAULT.md](KEYVAULT.md) for complete setup instructions. To use plain secrets instead, omit `KeyVault:VaultUrl` and provide actual values.
 
 ## Building
 
@@ -148,11 +151,12 @@ Health check endpoint.
 
 ## Security Considerations
 
-- Store all secrets (Azure AD client secret, Step-CA provisioner password) in Azure Key Vault
+- **Use Azure Key Vault** for storing secrets (Azure AD client secret, Step-CA provisioner password) - see [KEYVAULT.md](KEYVAULT.md)
 - Use managed identities where possible
 - Enable function authentication (Function keys or Azure AD authentication)
 - Restrict network access using Azure networking features
 - Monitor and log all certificate operations
+- Review the [Key Vault Integration Guide](KEYVAULT.md) for secure secret management
 
 ## Logging
 
