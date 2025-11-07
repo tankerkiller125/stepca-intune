@@ -1,0 +1,9 @@
+{
+  "profiles": {
+    "StepCA.Intune.Functions": {
+      "commandName": "Project",
+      "commandLineArgs": "--port 7249",
+      "launchBrowser": false
+    }
+  }
+}
