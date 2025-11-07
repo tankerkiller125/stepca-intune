@@ -5,6 +5,7 @@ using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
 namespace StepCA.Intune.ScepValidation;
@@ -84,12 +85,29 @@ public class StepCAClient
                 _logger.LogError("Step-CA certificate revocation failed: Status={StatusCode}, Content={Content}",
                     response.StatusCode, responseContent);
                 
-                // Check if certificate is already revoked
-                if (response.StatusCode == System.Net.HttpStatusCode.BadRequest && 
-                    responseContent.Contains("certificate is already revoked"))
+                // Check if certificate is already revoked by checking status code
+                // Step-CA returns 400 Bad Request for already revoked certificates
+                if (response.StatusCode == System.Net.HttpStatusCode.BadRequest)
                 {
-                    _logger.LogWarning("Certificate {SerialNumber} is already revoked", serialNumber);
-                    return true; // Consider already revoked as success
+                    // Parse response to check for specific error
+                    try
+                    {
+                        var errorResponse = JObject.Parse(responseContent);
+                        var errorType = errorResponse["type"]?.ToString() ?? "";
+                        var errorDetail = errorResponse["detail"]?.ToString() ?? "";
+                        
+                        // Check if error indicates certificate is already revoked
+                        if (errorType.Contains("badRequest") && 
+                            (errorDetail.Contains("already") || errorDetail.Contains("revoked")))
+                        {
+                            _logger.LogWarning("Certificate {SerialNumber} is already revoked", serialNumber);
+                            return true; // Consider already revoked as success
+                        }
+                    }
+                    catch (JsonException)
+                    {
+                        // If we can't parse the error, fall through to throw exception
+                    }
                 }
 
                 throw new StepCAException(

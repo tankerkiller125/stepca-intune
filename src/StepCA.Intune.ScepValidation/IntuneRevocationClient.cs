@@ -16,7 +16,7 @@ namespace StepCA.Intune.ScepValidation;
 /// </summary>
 public class IntuneRevocationClient
 {
-    private const string DEFAULT_SERVICE_VERSION = "5019-05-05";
+    private const string DEFAULT_SERVICE_VERSION = "2019-05-05";
     private const string CAREQUEST_SERVICE_NAME = "PkiConnectorFEService";
     private const string DOWNLOADREVOCATIONREQUESTS_URL = "CertificateAuthorityRequests/downloadRevocationRequests";
     private const string UPLOADREVOCATIONRESULTS_URL = "CertificateAuthorityRequests/uploadRevocationResults";

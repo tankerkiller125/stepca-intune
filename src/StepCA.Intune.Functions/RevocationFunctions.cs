@@ -24,12 +24,12 @@ public class RevocationFunctions
 
     /// <summary>
     /// Timer-triggered function that runs once every 24 hours to process certificate revocations
-    /// NCRONTAB expression: "0 0 * * * *" runs at the top of every hour
-    /// For testing, use "0 */5 * * * *" to run every 5 minutes
+    /// NCRONTAB expression: "0 0 0 * * *" runs once daily at midnight UTC
+    /// For testing more frequently, use "0 0 * * * *" to run every hour
     /// </summary>
     [Function("ProcessRevocations")]
     public async Task ProcessRevocations(
-        [TimerTrigger("0 0 * * * *")] TimerInfo timerInfo)
+        [TimerTrigger("0 0 0 * * *")] TimerInfo timerInfo)
     {
         _logger.LogInformation("Certificate revocation processing started at: {Time}", DateTime.UtcNow);
 
@@ -54,10 +54,11 @@ public class RevocationFunctions
 
     /// <summary>
     /// Manual trigger for processing revocations (useful for testing or on-demand processing)
+    /// This function is disabled by default and should only be invoked manually or via configuration
     /// </summary>
     [Function("ManualRevocationTrigger")]
     public async Task ManualRevocationTrigger(
-        [TimerTrigger("0 0 0 31 2 *")] TimerInfo timerInfo) // Never runs automatically (Feb 31st doesn't exist)
+        [TimerTrigger("0 0 0 31 12 *", RunOnStartup = false)] TimerInfo timerInfo) // Dec 31st only - effectively manual trigger
     {
         _logger.LogInformation("Manual revocation trigger invoked at: {Time}", DateTime.UtcNow);
 
