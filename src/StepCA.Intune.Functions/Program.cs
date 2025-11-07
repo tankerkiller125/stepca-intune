@@ -30,8 +30,10 @@ builder.Services.AddSingleton(sp =>
     var keyVaultProvider = sp.GetRequiredService<KeyVaultSecretProvider>();
 
     // Resolve secrets from Key Vault if configured
+    // Note: Using .Result here is safe as this is during application startup, not request processing
     var azureAppSecret = keyVaultProvider.GetSecretAsync(
-        config["Intune:AzureAppSecret"] ?? string.Empty).Result;
+        config["Intune:AzureAppSecret"] ?? string.Empty)
+        .ConfigureAwait(false).GetAwaiter().GetResult();
 
     return new IntuneScepValidationOptions
     {
@@ -52,8 +54,10 @@ builder.Services.AddSingleton(sp =>
     var keyVaultProvider = sp.GetRequiredService<KeyVaultSecretProvider>();
 
     // Resolve secrets from Key Vault if configured
+    // Note: Using .Result here is safe as this is during application startup, not request processing
     var provisionerPassword = keyVaultProvider.GetSecretAsync(
-        config["StepCA:ProvisionerPassword"] ?? string.Empty).Result;
+        config["StepCA:ProvisionerPassword"] ?? string.Empty)
+        .ConfigureAwait(false).GetAwaiter().GetResult();
 
     return new StepCAOptions
     {

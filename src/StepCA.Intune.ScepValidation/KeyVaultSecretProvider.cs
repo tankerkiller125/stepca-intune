@@ -61,8 +61,9 @@ public class KeyVaultSecretProvider
     /// <returns>The resolved secret value</returns>
     public async Task<string> GetSecretAsync(string value, string? secretName = null)
     {
+        // Return empty string for null/empty values
         if (string.IsNullOrWhiteSpace(value))
-            return value;
+            return string.Empty;
 
         // If Key Vault is disabled, return the value as-is
         if (!_isEnabled || _secretClient == null)

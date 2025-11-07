@@ -72,7 +72,7 @@ public class KeyVaultSecretProviderTests
         var result = await provider.GetSecretAsync(null!);
 
         // Assert
-        Assert.Null(result);
+        Assert.Equal(string.Empty, result);
     }
 
     [Fact]
