@@ -84,7 +84,9 @@ public class StepCAClient
             {
                 _logger.LogError("Step-CA certificate issuance failed: Status={StatusCode}, Content={Content}",
                     response.StatusCode, responseContent);
-                throw new Exception($"Step-CA returned error: {response.StatusCode} - {responseContent}");
+                throw new StepCAException(
+                    $"Step-CA returned error: {response.StatusCode} - {responseContent}",
+                    (int)response.StatusCode);
             }
 
             var result = JObject.Parse(responseContent);
@@ -95,7 +97,7 @@ public class StepCAClient
 
             if (string.IsNullOrEmpty(certPem))
             {
-                throw new Exception("Step-CA did not return a certificate");
+                throw new StepCAException("Step-CA did not return a certificate");
             }
 
             // Parse the certificate to extract details

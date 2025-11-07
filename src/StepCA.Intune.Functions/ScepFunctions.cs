@@ -1,6 +1,7 @@
 using System.Net;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using StepCA.Intune.ScepValidation;
@@ -158,11 +159,7 @@ public class ScepFunctions
             }
 
             // Note: IntuneScepValidator needs to be created here to validate
-            var intuneValidator = req.FunctionContext.InstanceServices.GetService(typeof(IntuneScepValidator)) as IntuneScepValidator;
-            if (intuneValidator == null)
-            {
-                throw new InvalidOperationException("IntuneScepValidator not available");
-            }
+            var intuneValidator = req.FunctionContext.InstanceServices.GetRequiredService<IntuneScepValidator>();
 
             await intuneValidator.ValidateRequestAsync(requestData.TransactionId, requestData.CertificateRequest);
 

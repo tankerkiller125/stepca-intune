@@ -79,11 +79,14 @@ public class ScepCertificateService
             // Send failure notification to Intune
             try
             {
+                var errorDescription = ex.Message ?? "Validation failed";
                 await _intuneValidator.SendFailureNotificationAsync(
                     transactionId: transactionId,
                     certificateRequest: csrBase64,
                     hResult: 0x80070001, // Generic failure code
-                    errorDescription: $"Validation failed: {ex.Message}".Substring(0, Math.Min(255, ex.Message.Length))
+                    errorDescription: errorDescription.Length > 255 
+                        ? errorDescription.Substring(0, 255) 
+                        : errorDescription
                 );
             }
             catch (Exception notifyEx)
@@ -100,11 +103,14 @@ public class ScepCertificateService
             // Send failure notification to Intune
             try
             {
+                var errorDescription = ex.Message ?? "Certificate issuance failed";
                 await _intuneValidator.SendFailureNotificationAsync(
                     transactionId: transactionId,
                     certificateRequest: csrBase64,
                     hResult: 0x80070002, // Generic error code
-                    errorDescription: $"Certificate issuance failed: {ex.Message}".Substring(0, Math.Min(255, ex.Message.Length))
+                    errorDescription: errorDescription.Length > 255 
+                        ? errorDescription.Substring(0, 255) 
+                        : errorDescription
                 );
             }
             catch (Exception notifyEx)
