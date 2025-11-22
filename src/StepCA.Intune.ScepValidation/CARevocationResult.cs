@@ -1,6 +1,5 @@
 using System;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Converters;
+using System.Text.Json.Serialization;
 
 namespace StepCA.Intune.ScepValidation;
 
@@ -12,26 +11,28 @@ public class CARevocationResult
     /// <summary>
     /// Context for this request
     /// </summary>
-    [JsonProperty(Required = Required.Always)]
+    [JsonRequired]
+    [JsonPropertyName("requestContext")]
     public string RequestContext { get; set; }
 
     /// <summary>
     /// Boolean for whether the request was successful
     /// </summary>
-    [JsonProperty(Required = Required.Always)]
+    [JsonRequired]
+    [JsonPropertyName("succeeded")]
     public bool Succeeded { get; set; }
 
     /// <summary>
     /// The error code for a failed request
     /// </summary>
-    [JsonProperty(Required = Required.Default)]
-    [JsonConverter(typeof(StringEnumConverter))]
+    [JsonPropertyName("errorCode")]
+    [JsonConverter(typeof(JsonStringEnumConverter))]
     public CARequestErrorCode ErrorCode { get; set; }
 
     /// <summary>
     /// The error message string describing why the request failed
     /// </summary>
-    [JsonProperty(Required = Required.Default)]
+    [JsonPropertyName("errorMessage")]
     public string? ErrorMessage { get; set; }
 
     /// <summary>

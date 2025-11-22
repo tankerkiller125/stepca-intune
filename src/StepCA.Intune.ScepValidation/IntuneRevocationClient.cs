@@ -2,12 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Net.Http;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Identity.Client;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
-using Newtonsoft.Json.Serialization;
 
 namespace StepCA.Intune.ScepValidation;
 
@@ -87,20 +86,14 @@ public class IntuneRevocationClient
             transactionId, maxRequests);
 
         // Create request body
-        var downloadParams = new
+        var requestBody = new JsonObject
         {
-            maxRequests = maxRequests,
-            issuerName = issuerName
+            ["downloadParameters"] = new JsonObject
+            {
+                ["maxRequests"] = maxRequests,
+                ["issuerName"] = issuerName
+            }
         };
-
-        JsonSerializerSettings settings = new JsonSerializerSettings
-        {
-            ContractResolver = new CamelCasePropertyNamesContractResolver()
-        };
-
-        var requestBody = new JObject(
-            new JProperty("downloadParameters", JToken.FromObject(downloadParams, JsonSerializer.Create(settings)))
-        );
 
         // Perform download call
         var result = await PostAsync(requestBody, DOWNLOADREVOCATIONREQUESTS_URL, transactionId);
@@ -109,18 +102,22 @@ public class IntuneRevocationClient
         if (result == null || result["value"] == null)
         {
             throw new ScepValidationException(
-                $"Unable to deserialize value returned from Intune. No 'value' property in response. JSON: {result}");
+                $"Unable to deserialize value returned from Intune. No 'value' property in response. JSON: {result?.ToJsonString()}");
         }
 
         List<CARevocationRequest>? revocationRequests;
         try
         {
-            revocationRequests = result["value"]?.ToObject<List<CARevocationRequest>>();
+            var jsonOptions = new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            };
+            revocationRequests = JsonSerializer.Deserialize<List<CARevocationRequest>>(result["value"]!.ToJsonString(), jsonOptions);
         }
         catch (JsonException ex)
         {
             throw new ScepValidationException(
-                $"Unable to deserialize value returned from Intune. Value: {result}.", ex);
+                $"Unable to deserialize value returned from Intune. Value: {result["value"]?.ToJsonString()}.", ex);
         }
 
         _logger.LogInformation("Downloaded {Count} revocation requests", revocationRequests?.Count ?? 0);
@@ -143,10 +140,16 @@ public class IntuneRevocationClient
         _logger.LogInformation("Uploading {Count} revocation results. Transaction ID: {TransactionId}",
             results.Count, transactionId);
 
-        // Create request body
-        var requestBody = new JObject(
-            new JProperty("results", JToken.FromObject(results))
-        );
+        // Create request body using JsonArray
+        var jsonOptions = new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        };
+        var resultsJson = JsonSerializer.Serialize(results, jsonOptions);
+        var requestBody = new JsonObject
+        {
+            ["results"] = JsonNode.Parse(resultsJson)
+        };
 
         // Perform upload call
         var result = await PostAsync(requestBody, UPLOADREVOCATIONRESULTS_URL, transactionId);
@@ -154,20 +157,21 @@ public class IntuneRevocationClient
         if (result == null || result["value"] == null)
         {
             throw new ScepValidationException(
-                $"Unable to deserialize value returned from Intune. No 'value' property in response. JSON: {result}");
+                $"Unable to deserialize value returned from Intune. No 'value' property in response. JSON: {result?.ToJsonString()}");
         }
 
         // Parse result
-        if (!bool.TryParse(result["value"]?.ToString(), out bool postSuccessful) || !postSuccessful)
+        bool postSuccessful = result["value"]?.GetValue<bool>() ?? false;
+        if (!postSuccessful)
         {
             throw new ScepValidationException(
-                $"Results not successfully recorded in Intune. Expected 'true' from service. Received: '{result}'");
+                $"Results not successfully recorded in Intune. Expected 'true' from service. Received: '{result.ToJsonString()}'");
         }
 
         _logger.LogInformation("Successfully uploaded revocation results");
     }
 
-    private async Task<JObject> PostAsync(JObject requestBody, string urlSuffix, string transactionId)
+    private async Task<JsonNode?> PostAsync(JsonObject requestBody, string urlSuffix, string transactionId)
     {
         var activityId = Guid.NewGuid();
 
@@ -181,7 +185,7 @@ public class IntuneRevocationClient
             var request = new HttpRequestMessage(HttpMethod.Post, url);
             request.Headers.Add("Authorization", $"Bearer {accessToken}");
             request.Headers.Add("client-request-id", activityId.ToString());
-            request.Content = new StringContent(requestBody.ToString(), Encoding.UTF8, "application/json");
+            request.Content = new StringContent(requestBody.ToJsonString(), Encoding.UTF8, "application/json");
 
             _logger.LogDebug("Posting to Intune: {Url}, Activity ID: {ActivityId}, Transaction ID: {TransactionId}",
                 url, activityId, transactionId);
@@ -204,7 +208,7 @@ public class IntuneRevocationClient
                     response.StatusCode.ToString());
             }
 
-            return JObject.Parse(responseContent);
+            return JsonNode.Parse(responseContent);
         }
         catch (ScepValidationException)
         {

@@ -1,10 +1,10 @@
 using System;
 using System.Net.Http;
 using System.Text;
+using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Identity.Client;
-using Newtonsoft.Json.Linq;
 
 namespace StepCA.Intune.ScepValidation;
 
@@ -93,13 +93,15 @@ public class IntuneScepValidator
 
         _logger.LogInformation("Validating SCEP request with transaction ID: {TransactionId}", transactionId);
 
-        var requestBody = new JObject(
-            new JProperty("request", new JObject(
-                new JProperty("transactionId", transactionId),
-                new JProperty("certificateRequest", certificateRequest),
-                new JProperty("callerInfo", _options.ProviderNameAndVersion)
-            ))
-        );
+        var requestBody = new JsonObject
+        {
+            ["request"] = new JsonObject
+            {
+                ["transactionId"] = transactionId,
+                ["certificateRequest"] = certificateRequest,
+                ["callerInfo"] = _options.ProviderNameAndVersion
+            }
+        };
 
         await PostToIntuneAsync(requestBody, VALIDATION_URL, transactionId);
         
@@ -149,19 +151,21 @@ public class IntuneScepValidator
 
         _logger.LogInformation("Sending success notification for transaction ID: {TransactionId}", transactionId);
 
-        var requestBody = new JObject(
-            new JProperty("notification", new JObject(
-                new JProperty("transactionId", transactionId),
-                new JProperty("certificateRequest", certificateRequest),
-                new JProperty("certificateThumbprint", certThumbprint),
-                new JProperty("certificateSerialNumber", certSerialNumber),
-                new JProperty("certificateExpirationDateUtc", certExpirationDate),
-                new JProperty("issuingCertificateAuthority", certIssuingAuthority),
-                new JProperty("callerInfo", _options.ProviderNameAndVersion),
-                new JProperty("caConfiguration", caConfiguration),
-                new JProperty("certificateAuthority", certificateAuthority)
-            ))
-        );
+        var requestBody = new JsonObject
+        {
+            ["notification"] = new JsonObject
+            {
+                ["transactionId"] = transactionId,
+                ["certificateRequest"] = certificateRequest,
+                ["certificateThumbprint"] = certThumbprint,
+                ["certificateSerialNumber"] = certSerialNumber,
+                ["certificateExpirationDateUtc"] = certExpirationDate,
+                ["issuingCertificateAuthority"] = certIssuingAuthority,
+                ["callerInfo"] = _options.ProviderNameAndVersion,
+                ["caConfiguration"] = caConfiguration,
+                ["certificateAuthority"] = certificateAuthority
+            }
+        };
 
         await PostToIntuneAsync(requestBody, NOTIFY_SUCCESS_URL, transactionId);
         
@@ -195,22 +199,24 @@ public class IntuneScepValidator
         _logger.LogWarning("Sending failure notification for transaction ID: {TransactionId}, Error: {ErrorDescription}", 
             transactionId, errorDescription);
 
-        var requestBody = new JObject(
-            new JProperty("notification", new JObject(
-                new JProperty("transactionId", transactionId),
-                new JProperty("certificateRequest", certificateRequest),
-                new JProperty("hResult", hResult),
-                new JProperty("errorDescription", errorDescription),
-                new JProperty("callerInfo", _options.ProviderNameAndVersion)
-            ))
-        );
+        var requestBody = new JsonObject
+        {
+            ["notification"] = new JsonObject
+            {
+                ["transactionId"] = transactionId,
+                ["certificateRequest"] = certificateRequest,
+                ["hResult"] = hResult,
+                ["errorDescription"] = errorDescription,
+                ["callerInfo"] = _options.ProviderNameAndVersion
+            }
+        };
 
         await PostToIntuneAsync(requestBody, NOTIFY_FAILURE_URL, transactionId);
         
         _logger.LogInformation("Failure notification sent for transaction ID: {TransactionId}", transactionId);
     }
 
-    private async Task PostToIntuneAsync(JObject requestBody, string urlSuffix, string transactionId)
+    private async Task PostToIntuneAsync(JsonObject requestBody, string urlSuffix, string transactionId)
     {
         var activityId = Guid.NewGuid();
         
@@ -224,7 +230,7 @@ public class IntuneScepValidator
             var request = new HttpRequestMessage(HttpMethod.Post, url);
             request.Headers.Add("Authorization", $"Bearer {accessToken}");
             request.Headers.Add("client-request-id", activityId.ToString());
-            request.Content = new StringContent(requestBody.ToString(), Encoding.UTF8, "application/json");
+            request.Content = new StringContent(requestBody.ToJsonString(), Encoding.UTF8, "application/json");
 
             _logger.LogDebug("Posting to Intune: {Url}, Activity ID: {ActivityId}", url, activityId);
 
@@ -247,9 +253,9 @@ public class IntuneScepValidator
             }
 
             // Parse response
-            var result = JObject.Parse(responseContent);
-            var code = result["code"]?.ToString();
-            var errorDescription = result["errorDescription"]?.ToString();
+            var result = JsonNode.Parse(responseContent);
+            var code = result?["code"]?.GetValue<string>();
+            var errorDescription = result?["errorDescription"]?.GetValue<string>();
 
             if (!string.IsNullOrEmpty(code) && code != "Success")
             {

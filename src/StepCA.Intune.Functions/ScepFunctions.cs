@@ -1,9 +1,9 @@
 using System.Net;
+using System.Text.Json;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
 using StepCA.Intune.ScepValidation;
 
 namespace StepCA.Intune.Functions;
@@ -35,7 +35,7 @@ public class ScepFunctions
 
         var response = req.CreateResponse(HttpStatusCode.OK);
         response.Headers.Add("Content-Type", "application/json");
-        response.WriteString(JsonConvert.SerializeObject(new
+        response.WriteString(JsonSerializer.Serialize(new
         {
             status = "healthy",
             service = "StepCA Intune SCEP Connector",
@@ -59,7 +59,7 @@ public class ScepFunctions
         {
             // Read request body
             var requestBody = await new StreamReader(req.Body).ReadToEndAsync();
-            var requestData = JsonConvert.DeserializeObject<ScepCertificateRequest>(requestBody);
+            var requestData = JsonSerializer.Deserialize<ScepCertificateRequest>(requestBody);
 
             if (requestData == null || string.IsNullOrWhiteSpace(requestData.TransactionId) || 
                 string.IsNullOrWhiteSpace(requestData.CertificateRequest))
@@ -67,7 +67,7 @@ public class ScepFunctions
                 _logger.LogWarning("Invalid request: Missing required fields");
                 var errorResponse = req.CreateResponse(HttpStatusCode.BadRequest);
                 errorResponse.Headers.Add("Content-Type", "application/json");
-                errorResponse.WriteString(JsonConvert.SerializeObject(new
+                errorResponse.WriteString(JsonSerializer.Serialize(new
                 {
                     error = "Missing required fields: TransactionId and CertificateRequest are required"
                 }));
@@ -85,7 +85,7 @@ public class ScepFunctions
             // Return the issued certificate
             var response = req.CreateResponse(HttpStatusCode.OK);
             response.Headers.Add("Content-Type", "application/json");
-            response.WriteString(JsonConvert.SerializeObject(new ScepCertificateResponse
+            response.WriteString(JsonSerializer.Serialize(new ScepCertificateResponse
             {
                 TransactionId = requestData.TransactionId,
                 Certificate = certificate.CertificatePem,
@@ -107,7 +107,7 @@ public class ScepFunctions
             
             var errorResponse = req.CreateResponse(HttpStatusCode.BadRequest);
             errorResponse.Headers.Add("Content-Type", "application/json");
-            errorResponse.WriteString(JsonConvert.SerializeObject(new
+            errorResponse.WriteString(JsonSerializer.Serialize(new
             {
                 error = "Validation failed",
                 message = ex.Message,
@@ -123,7 +123,7 @@ public class ScepFunctions
             
             var errorResponse = req.CreateResponse(HttpStatusCode.InternalServerError);
             errorResponse.Headers.Add("Content-Type", "application/json");
-            errorResponse.WriteString(JsonConvert.SerializeObject(new
+            errorResponse.WriteString(JsonSerializer.Serialize(new
             {
                 error = "Internal server error",
                 message = ex.Message
@@ -144,14 +144,14 @@ public class ScepFunctions
         try
         {
             var requestBody = await new StreamReader(req.Body).ReadToEndAsync();
-            var requestData = JsonConvert.DeserializeObject<ScepValidationRequest>(requestBody);
+            var requestData = JsonSerializer.Deserialize<ScepValidationRequest>(requestBody);
 
             if (requestData == null || string.IsNullOrWhiteSpace(requestData.TransactionId) || 
                 string.IsNullOrWhiteSpace(requestData.CertificateRequest))
             {
                 var errorResponse = req.CreateResponse(HttpStatusCode.BadRequest);
                 errorResponse.Headers.Add("Content-Type", "application/json");
-                errorResponse.WriteString(JsonConvert.SerializeObject(new
+                errorResponse.WriteString(JsonSerializer.Serialize(new
                 {
                     error = "Missing required fields"
                 }));
@@ -165,7 +165,7 @@ public class ScepFunctions
 
             var response = req.CreateResponse(HttpStatusCode.OK);
             response.Headers.Add("Content-Type", "application/json");
-            response.WriteString(JsonConvert.SerializeObject(new
+            response.WriteString(JsonSerializer.Serialize(new
             {
                 status = "valid",
                 transactionId = requestData.TransactionId
@@ -179,7 +179,7 @@ public class ScepFunctions
             
             var errorResponse = req.CreateResponse(HttpStatusCode.BadRequest);
             errorResponse.Headers.Add("Content-Type", "application/json");
-            errorResponse.WriteString(JsonConvert.SerializeObject(new
+            errorResponse.WriteString(JsonSerializer.Serialize(new
             {
                 error = "Validation failed",
                 message = ex.Message
@@ -192,7 +192,7 @@ public class ScepFunctions
             
             var errorResponse = req.CreateResponse(HttpStatusCode.InternalServerError);
             errorResponse.Headers.Add("Content-Type", "application/json");
-            errorResponse.WriteString(JsonConvert.SerializeObject(new
+            errorResponse.WriteString(JsonSerializer.Serialize(new
             {
                 error = "Internal server error",
                 message = ex.Message

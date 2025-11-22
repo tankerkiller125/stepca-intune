@@ -3,10 +3,10 @@ using System.Net.Http;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 
 namespace StepCA.Intune.ScepValidation;
 
@@ -59,12 +59,12 @@ public class StepCAClient
         try
         {
             // Prepare the revoke request
-            var revokeRequest = new JObject
+            var revokeRequest = new JsonObject
             {
                 ["serial"] = serialNumber,
                 ["reason"] = reason,
                 ["reasonCode"] = 0, // 0 = unspecified
-                ["provisioner"] = new JObject
+                ["provisioner"] = new JsonObject
                 {
                     ["name"] = _options.ProvisionerName,
                     ["password"] = _options.ProvisionerPassword
@@ -73,7 +73,7 @@ public class StepCAClient
 
             var url = $"{_options.ServerUrl}/revoke";
             var request = new HttpRequestMessage(HttpMethod.Post, url);
-            request.Content = new StringContent(revokeRequest.ToString(), Encoding.UTF8, "application/json");
+            request.Content = new StringContent(revokeRequest.ToJsonString(), Encoding.UTF8, "application/json");
 
             _logger.LogDebug("Posting revocation request to Step-CA: {Url}", url);
 
@@ -92,9 +92,9 @@ public class StepCAClient
                     // Parse response to check for specific error
                     try
                     {
-                        var errorResponse = JObject.Parse(responseContent);
-                        var errorType = errorResponse["type"]?.ToString() ?? "";
-                        var errorDetail = errorResponse["detail"]?.ToString() ?? "";
+                        var errorResponse = JsonNode.Parse(responseContent);
+                        var errorType = errorResponse?["type"]?.GetValue<string>() ?? "";
+                        var errorDetail = errorResponse?["detail"]?.GetValue<string>() ?? "";
                         
                         // Check if error indicates certificate is already revoked
                         if (errorType.Contains("badRequest") && 
@@ -147,10 +147,10 @@ public class StepCAClient
             var csrPem = ConvertBase64ToPem(csrBase64, "CERTIFICATE REQUEST");
 
             // Prepare the sign request
-            var signRequest = new JObject
+            var signRequest = new JsonObject
             {
                 ["csr"] = csrPem,
-                ["provisioner"] = new JObject
+                ["provisioner"] = new JsonObject
                 {
                     ["name"] = _options.ProvisionerName,
                     ["password"] = _options.ProvisionerPassword
@@ -160,7 +160,7 @@ public class StepCAClient
 
             var url = $"{_options.ServerUrl}/sign";
             var request = new HttpRequestMessage(HttpMethod.Post, url);
-            request.Content = new StringContent(signRequest.ToString(), Encoding.UTF8, "application/json");
+            request.Content = new StringContent(signRequest.ToJsonString(), Encoding.UTF8, "application/json");
 
             _logger.LogDebug("Posting certificate request to Step-CA: {Url}", url);
 
@@ -176,11 +176,11 @@ public class StepCAClient
                     (int)response.StatusCode);
             }
 
-            var result = JObject.Parse(responseContent);
+            var result = JsonNode.Parse(responseContent);
             
             // Extract certificate information
-            var certPem = result["crt"]?.ToString();
-            var certChainPem = result["certChain"]?.ToString() ?? string.Empty;
+            var certPem = result?["crt"]?.GetValue<string>();
+            var certChainPem = result?["certChain"]?.GetValue<string>() ?? string.Empty;
 
             if (string.IsNullOrEmpty(certPem))
             {
