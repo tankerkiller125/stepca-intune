@@ -112,7 +112,9 @@ public class IntuneRevocationClient
             {
                 PropertyNameCaseInsensitive = true
             };
-            revocationRequests = JsonSerializer.Deserialize<List<CARevocationRequest>>(result["value"]!.ToJsonString(), jsonOptions);
+            // Safe to use ! here since we've already checked for null above
+            var valueNode = result["value"]!;
+            revocationRequests = JsonSerializer.Deserialize<List<CARevocationRequest>>(valueNode.ToJsonString(), jsonOptions);
         }
         catch (JsonException ex)
         {
@@ -160,8 +162,9 @@ public class IntuneRevocationClient
                 $"Unable to deserialize value returned from Intune. No 'value' property in response. JSON: {result?.ToJsonString()}");
         }
 
-        // Parse result
-        bool postSuccessful = result["value"]?.GetValue<bool>() ?? false;
+        // Parse result - safe to use ! here since we've already checked for null above
+        var valueNode = result["value"]!;
+        bool postSuccessful = valueNode.GetValue<bool>();
         if (!postSuccessful)
         {
             throw new ScepValidationException(
